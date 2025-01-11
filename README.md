@@ -12,4 +12,4 @@ To decrypt your notes and be able to edit them, you need to enter a key and subm
 
 ## How does it work?
 
-Texts are encrypted via the Advanced Encryption Standard (AES), and stored using localstorage. It only consists of one html file.
+Texts are encrypted via the Advanced Encryption Standard (AES), and stored using 'window.localstorage'. It only consists of one HTML file.
