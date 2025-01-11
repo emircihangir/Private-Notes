@@ -1,0 +1,218 @@
+<html>
+	<head>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Private Notes</title>
+		<style>
+			* {
+				outline: none;
+				margin: 0;
+				padding: 0;
+			}
+			#bottom_menu_container {
+				position: fixed;
+				bottom: 10px;
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				width: 100%;
+				/* background-color: red; */
+			}
+
+			#key_input {
+				width: fit-content;
+				background-color: transparent;
+				border: 2px solid black;
+				padding: 10px;
+				border-top-left-radius: 5px;
+				border-bottom-left-radius: 5px;
+			}
+			#submit_button {
+				border-top-left-radius: 0px;
+				border-bottom-left-radius: 0px;
+			}
+
+			button {
+				background-color: black;
+				border: none;
+				border-radius: 5px;
+				padding: 12px;
+				color: white;
+				cursor: pointer;
+			}
+
+			#notes_textarea {
+				width: 100%;
+				height: 100%;
+				padding: 20px;
+				border: none;
+				font-size: medium;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="bottom_menu_container">
+			<input type="text" autocomplete="off" spellcheck="false" name="key_input" id="key_input" placeholder="key" />
+			<button id="submit_button" onclick="submit_button_clicked()">Submit</button>
+		</div>
+
+		<textarea
+			id="notes_textarea"
+			autocomplete="off"
+			spellcheck="false"
+			oninput="document.getElementById('save_button').style.backgroundColor = 'black';"
+		></textarea>
+
+		<script>
+			let key = null;
+			let notes = localStorage.getItem("notes");
+
+			notes_textarea = document.getElementById("notes_textarea");
+			notes == null ? (notes_textarea.value = "You are a new user. Please submit a key to use for encryption.") : (notes_textarea.value = notes);
+			notes_textarea.disabled = true;
+
+			function submit_button_clicked() {
+				key = document.getElementById("key_input").value;
+
+				if (notes != null) {
+					decrypt(base64ToArrayBuffer(notes), key).then((r) => {
+						notes_textarea.disabled = false;
+
+						decoder = new TextDecoder();
+						notes_textarea.value = decoder.decode(r);
+
+						document.getElementById("bottom_menu_container").innerHTML = `
+                        <button id="save_button" onclick="save_button_clicked()">Save</button>
+                        <button style="margin:5px;" id="save_button" onclick="if(confirm('Are your sure?')){localStorage.clear();location.reload();}">Erase Data</button>
+                        `;
+
+						document.getElementById("save_button").style.backgroundColor = "gray";
+					});
+				} else {
+					notes_textarea.disabled = false;
+					notes_textarea.value = "Now hit the save button after you're done editing this field.";
+					document.getElementById("bottom_menu_container").innerHTML = `
+                    <button id="save_button" onclick="save_button_clicked()">Save</button>
+                    `;
+				}
+			}
+
+			function save_button_clicked() {
+				encrypt(notes_textarea.value, key).then((result) => {
+					b64_text = arrayBufferToBase64(result);
+					localStorage.setItem("notes", b64_text);
+
+					document.getElementById("save_button").style.backgroundColor = "gray";
+				});
+			}
+
+			// Helper function to convert ArrayBuffer to Base64
+			function arrayBufferToBase64(buffer) {
+				const bytes = new Uint8Array(buffer);
+				let binary = "";
+				for (let i = 0; i < bytes.byteLength; i++) {
+					binary += String.fromCharCode(bytes[i]);
+				}
+				return window.btoa(binary);
+			}
+
+			// Helper function to convert Base64 back to ArrayBuffer
+			function base64ToArrayBuffer(base64) {
+				const binary = window.atob(base64);
+				const buffer = new ArrayBuffer(binary.length);
+				const bytes = new Uint8Array(buffer);
+				for (let i = 0; i < binary.length; i++) {
+					bytes[i] = binary.charCodeAt(i);
+				}
+				return buffer;
+			}
+			/*
+            Get some key material to use as input to the deriveKey method.
+            The key material is a password supplied by the user.
+            */
+			function getKeyMaterial(text) {
+				const enc = new TextEncoder();
+				return window.crypto.subtle.importKey("raw", enc.encode(text), "PBKDF2", false, ["deriveBits", "deriveKey"]);
+			}
+
+			async function encrypt(plaintext, key_text) {
+				const keyMaterial = await getKeyMaterial(key_text);
+				const enc = new TextEncoder();
+
+				const iv = new Uint8Array(12);
+				const salt = new Uint8Array(16);
+				const key = await window.crypto.subtle.deriveKey(
+					{
+						name: "PBKDF2",
+						salt,
+						iterations: 100000,
+						hash: "SHA-256",
+					},
+					keyMaterial,
+					{ name: "AES-GCM", length: 256 },
+					true,
+					["encrypt", "decrypt"]
+				);
+
+				return window.crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(plaintext));
+			}
+
+			async function decrypt(uint8, key_text) {
+				const keyMaterial = await getKeyMaterial(key_text);
+				const iv = new Uint8Array(12);
+				const salt = new Uint8Array(16);
+				const key = await window.crypto.subtle.deriveKey(
+					{
+						name: "PBKDF2",
+						salt,
+						iterations: 100000,
+						hash: "SHA-256",
+					},
+					keyMaterial,
+					{ name: "AES-GCM", length: 256 },
+					true,
+					["encrypt", "decrypt"]
+				);
+
+				return window.crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, uint8);
+			}
+
+			// encrypt('some secret text fr fr').then((result)=>{
+			//     // the result of the encryption function is an arrayBuffer.
+			//     // we convert this arrayBuffer to base64 text to store it.
+			//     // then, when needed, we convert this base64 text back to an arrayBuffer -
+			//     // because the decryption function only accepts arrayBuffers as input.
+			//     b64_text = arrayBufferToBase64(result);
+
+			//     // localStorage.setItem("notes", b64_text);
+
+			//     document.body.innerHTML += b64_text + '<br>';
+
+			//     decrypt(base64ToArrayBuffer(b64_text)).then((r)=>{
+			//         decoder = new TextDecoder();
+			//         document.body.innerHTML += decoder.decode(r) + '<br>';
+			//     })
+			// });
+
+			// if (navigator.storage && navigator.storage.persist) {
+			// 	navigator.storage.persist().then((persistent) => {
+			// 		if (persistent) {
+			//             document.body.innerHTML += "Storage will not be cleared except by explicit user action." + "<br>";
+			// 			console.log("Storage will not be cleared except by explicit user action");
+			// 		} else {
+			//             document.body.innerHTML += "Storage may be cleared by the UA under storage pressure." + "<br>";
+			// 			console.log("Storage may be cleared by the UA under storage pressure.");
+			// 		}
+			// 	});
+			// }
+
+			// navigator.storage.estimate().then((estimate) => {
+			//     document.body.innerHTML += ((estimate.usage / estimate.quota) * 100).toFixed(2) + "<br>";
+			//     document.body.innerHTML += (estimate.quota / 1024 / 1024).toFixed(2) + "MB" + "<br>";
+
+			// 	console.log(((estimate.usage / estimate.quota) * 100).toFixed(2));
+			// 	console.log((estimate.quota / 1024 / 1024).toFixed(2) + "MB");
+			// });
+		</script>
+	</body>
+</html>
