@@ -1,0 +1,44 @@
+* {
+    outline: none;
+    margin: 0;
+    padding: 0;
+}
+#bottom_menu_container {
+    position: fixed;
+    bottom: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    /* background-color: red; */
+}
+
+#key_input {
+    width: fit-content;
+    background-color: transparent;
+    border: 2px solid black;
+    padding: 10px;
+    border-top-left-radius: 5px;
+    border-bottom-left-radius: 5px;
+}
+#submit_button {
+    border-top-left-radius: 0px;
+    border-bottom-left-radius: 0px;
+}
+
+button {
+    background-color: black;
+    border: none;
+    border-radius: 5px;
+    padding: 12px;
+    color: white;
+    cursor: pointer;
+}
+
+#notes_textarea {
+    width: 100%;
+    height: 100%;
+    padding: 20px;
+    border: none;
+    font-size: medium;
+}
